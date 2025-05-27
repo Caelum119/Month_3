@@ -1,96 +1,65 @@
-import flet as ft
+import flet
+from flet import Page, TextField, ElevatedButton, Column, Text, ListView
 
-from database import Database
+def main(page: Page):
+    page.title = "Учёт расходов"
 
+    expenses = []  # список расходов, каждый элемент будет словарём {"name": ..., "amount": ...}
+    total_sum = 0
 
-def main(page: ft.Page):
-    page.title = "Приложение для списка дел"
-    page.window.width = 1024
-    # data - свойство объекта page, которое может хранить любые данные
-    # которые будут использоваться в любом месте прилижения, работает как глобальная переменная
-    # page.data = 0  # счетчик задач
+    # Текстовые поля для ввода
+    name_input = TextField(label="Название расхода", width=200)
+    amount_input = TextField(label="Сумма расхода", width=200, keyboard_type="number")
 
-    # создаем экземпляр класса Database
-    db = Database("db.sqlite3")
-    # создаем таблицы
-    db.create_tables()
+    # Отображение списка расходов
+    expenses_list = Column()
 
-    todos = db.all_todos()
-    print(todos)
+    # Текст для общей суммы
+    total_text = Text("Общая сумма расходов: 0", size=16, weight="bold")
 
-    def get_rows() -> list[ft.Row]:
-        rows = []
-        for todo in db.all_todos():
-            # проходим по списку задач и добавляем каждую в todo_list_area
-            # так как Column может в себя вмещать другие элементы, свойство controls как раз служит списком элементов, добавляемых в Column
-            rows.append(
-                ft.Row(
-                    controls=[
-                        ft.Text(value=todo[0]),
-                        ft.Text(value=f"Задача: {todo[1]}", size=30),
-                        ft.Text(
-                            value=f"Категория: {todo[2]}", size=30, color=ft.Colors.BLUE
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.EDIT,
-                            icon_color=ft.Colors.GREEN,
-                            icon_size=20,
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.DELETE,
-                            icon_color=ft.Colors.RED,
-                            icon_size=20,
-                            on_click=delete_todo,
-                            data=todo[0],
-                        ),
-                    ]
-                )
-            )
-        return rows
+    def add_expense(e):
+        nonlocal total_sum
+        name = name_input.value.strip()
+        amount_str = amount_input.value.strip()
 
-    # функция, которая будет вызываться при нажатии на кнопку "Добавить"
-    def add_todo(e):
-        # Добавляем задачу в БД
-        db.add_todo(task=task_input.value, category=category_input.value)
+        # Проверка, что заполнено и сумма число > 0
+        if not name or not amount_str:
+            page.snack_bar = Text("Пожалуйста, заполните оба поля")
+            page.snack_bar.open = True
+            page.update()
+            return
 
-        todo_list_area.controls = get_rows()
+        try:
+            amount = float(amount_str)
+            if amount <= 0:
+                raise ValueError()
+        except ValueError:
+            page.snack_bar = Text("Сумма должна быть положительным числом")
+            page.snack_bar.open = True
+            page.update()
+            return
 
-        # очищаем поля
-        task_input.value = ""
-        category_input.value = ""
-        todo_count_text.value = f"Всего {db.count_todos()} задач(а)"
+        # Добавляем в список расходов
+        expenses.append({"name": name, "amount": amount})
+        total_sum += amount
 
-        # обновляем страницу, чтобы отобразить изменения
-        page.update()  # эта строка обязательна
-
-    def delete_todo(e):
-        print(f"В delete_todo нажали на todo с id={e.control.data}")
-        db.delete_todo(todo_id=e.control.data)
-        todo_list_area.controls = get_rows()
-        todo_count_text.value = f"Всего {db.count_todos()} задач(а)"
+        # Добавляем новый элемент в UI список
+        expenses_list.controls.append(Text(f"{name}: {amount}"))
+        total_text.value = f"Общая сумма расходов: {total_sum}"
+        # Очищаем поля ввода
+        name_input.value = ""
+        amount_input.value = ""
         page.update()
 
-    # создаем элементы интерфейса
-    title = ft.Text(value="Список дел", size=33)
-    task_input = ft.TextField(label="Введите задачу")
-    category_input = ft.TextField(label="Введите категорию")
-    add_button = ft.ElevatedButton("Добавить", on_click=add_todo)
-    todo_count_text = ft.Text(
-        value=f"Всего {db.count_todos()} задач(а)", size=28, color=ft.Colors.PINK
-    )
-    # это место, куда будут добавляться задачи в виде Text
-    todo_list_area = ft.Column(controls=get_rows(), scroll="auto", expand=True)
-    # создаем форму в виде строки и добавляем в нее поля и кнопку
-    form_area = ft.Row(controls=[task_input, category_input, add_button])
-    title.value = "Приложение для списка дел"
+    add_button = ElevatedButton(text="Добавить расход", on_click=add_expense)
 
-    # добавляем элементы на страницу, порядок важен
+    # Добавляем все элементы на страницу
     page.add(
-        title,
-        form_area,
-        todo_count_text,
-        todo_list_area,
-    )  # от того, в каком порядке они тут добавляются, зависит в каком порядке они отображаются
+        name_input,
+        amount_input,
+        add_button,
+        expenses_list,
+        total_text,
+    )
 
-
-ft.app(main)
+flet.app(target=main)
